@@ -1,5 +1,6 @@
 package com.example.applicationrestaurant.viewmodel
 
+import android.util.Log
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -10,14 +11,14 @@ import com.example.applicationrestaurant.network.RetrofitClient
 import kotlinx.coroutines.launch
 
 class RestaurantViewModel : ViewModel() {
+
+    // --- États ---
     private val _plats = mutableStateOf<List<Plat>>(emptyList())
     val plats: State<List<Plat>> = _plats
 
-    // Gestion du panier avec CartItem pour les quantités
     private val _panier = mutableStateListOf<CartItem>()
     val panier: List<CartItem> = _panier
 
-    // État pour l'historique des commandes
     private val _historique = mutableStateOf<List<Commande>>(emptyList())
     val historique: State<List<Commande>> = _historique
 
@@ -26,16 +27,21 @@ class RestaurantViewModel : ViewModel() {
 
     init {
         fetchPlats()
-        fetchHistorique(1) // On utilise l'ID utilisateur 1 par défaut
+        fetchHistorique(1)
     }
+
+    // --- Fonctions Réseau ---
 
     fun fetchPlats() {
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                _plats.value = RetrofitClient.instance.getPlats()
+                val response = RetrofitClient.instance.getPlats()
+                if (response.isSuccessful) {
+                    _plats.value = response.body() ?: emptyList()
+                }
             } catch (e: Exception) {
-                e.printStackTrace()
+                Log.e("API_DEBUG", "Erreur Plats: ${e.message}")
             } finally {
                 _isLoading.value = false
             }
@@ -45,12 +51,17 @@ class RestaurantViewModel : ViewModel() {
     fun fetchHistorique(userId: Int) {
         viewModelScope.launch {
             try {
-                _historique.value = RetrofitClient.instance.getHistoriqueCommandes(userId)
+                val response = RetrofitClient.instance.getHistoriqueCommandes(userId)
+                if (response.isSuccessful) {
+                    _historique.value = response.body() ?: emptyList()
+                }
             } catch (e: Exception) {
-                e.printStackTrace()
+                Log.e("API_DEBUG", "Erreur Historique: ${e.message}")
             }
         }
     }
+
+    // --- Fonctions Panier (Indispensables pour CartScreen) ---
 
     fun ajouterAuPanier(plat: Plat) {
         val index = _panier.indexOfFirst { it.plat.id == plat.id }
@@ -84,13 +95,14 @@ class RestaurantViewModel : ViewModel() {
                 val total = calculerTotal()
                 val request = CommandeRequest(user_id = userId, total = total)
                 val response = RetrofitClient.instance.passerCommande(request)
+
                 if (response.isSuccessful) {
                     _panier.clear()
-                    fetchHistorique(userId) // Rafraîchir l'historique
+                    fetchHistorique(userId) // Rafraîchir après commande
                     onSuccess()
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
+                Log.e("API_DEBUG", "Erreur Commande: ${e.message}")
             }
         }
     }

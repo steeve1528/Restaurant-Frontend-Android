@@ -7,7 +7,9 @@ data class Commande(
     @SerializedName("user_id") val userId: Int,
     @SerializedName("total") val total: Double,
     @SerializedName("statut") val statut: String,
-    @SerializedName("created_at") val createdAt: String
+    @SerializedName("created_at") val createdAt: String,
+    // Ajoute ceci pour récupérer les plats associés
+    @SerializedName("plats") val plats: List<Plat>? = null
 )
 
 data class CommandeRequest(
